@@ -10,9 +10,13 @@ public class BezierCurve {
     private final List<Translation2d> waypoints;
     private final double differentBetweenTs;
 
+    private boolean hasBeenInLast;
+
     public BezierCurve(List<Translation2d> waypoints) {
         this.waypoints = waypoints;
         this.differentBetweenTs = 0.02 / waypoints.size();
+
+        this.hasBeenInLast = false;
     }
 
     public BezierCurve(Translation2d... waypoints) {
@@ -35,12 +39,24 @@ public class BezierCurve {
                 minT = t;
             }
         }
+
+        if (Math.abs(minT - 1) <= this.differentBetweenTs) {
+            hasBeenInLast = true;
+        }
+
         return new State(output, minT);
     }
 
-    public Pose2d getVelocity(double t, double velocity) {
-        return new Pose2d(new Translation2d(velocity, 0).rotateBy(this.getAngle(t)), Rotation2d.fromDegrees(0));
+    public Pose2d getVelocity(State state, Pose2d robot, double velocity) {
+        Translation2d vector = new Translation2d(velocity, 0).rotateBy(this.getAngle(state.t))
+                .plus(state.pose.getTranslation().minus(robot.getTranslation()).times(3));
+        return new Pose2d(vector, Rotation2d.fromDegrees(0));
     }
+
+    public Pose2d getVelocity(State state, Pose2d robot) {
+        return this.getVelocity(state, robot, (robot.getTranslation().getDistance(getFinalPoint())) * 2);
+    }
+
 
     public double getX(double t) {
         List<Double> pointsX = waypoints.stream().map(Translation2d::getX).toList();

@@ -36,7 +36,7 @@ public class BezierCurveGUI extends Frame implements ZeroCenter, DrawCentered {
                 new Translation2d(3, 3),
                 new Translation2d(7, -1)
         );
-        this.robot = new Robot(new Pose2d(this.bezierCurve.getStartPoint(), Rotation2d.fromDegrees(0)),
+        this.robot = new Robot(new Pose2d(new Translation2d(-3, -4), Rotation2d.fromDegrees(0)),
                 new Robot.Constants(4, 1 / FPS));
 
         this.pidController = new ProfiledPIDController(1, 0, 0, new TrapezoidProfile.Constraints(10, 10));
@@ -78,7 +78,7 @@ public class BezierCurveGUI extends Frame implements ZeroCenter, DrawCentered {
         this.fillPolygon(Color.YELLOW, translation2ds);
 
         if (this.robot.getPosition().getTranslation().getDistance(this.bezierCurve.getFinalPoint()) > TOLERANCE)
-            this.robot.drive(this.bezierCurve.getVelocity(state.t, 3));
+            this.robot.drive(this.bezierCurve.getVelocity(state, this.robot.getPosition()));
     }
 
     public double calculateVelocity(double t) {
