@@ -15,7 +15,7 @@ import javax.swing.*;
 import java.awt.*;
 
 public class BezierCurveGUI extends Frame implements ZeroCenter, DrawCentered {
-    private static final double MAX_VALUE = 8;
+    private static final double MAX_VALUE = 8.27;
     private static final Dimension2d DIMENSION = new Dimension2d(1920, 930);
     private static final int PIXELS_IN_UNIT = (int) (DIMENSION.getX() / MAX_VALUE) / 2;
 
@@ -35,7 +35,7 @@ public class BezierCurveGUI extends Frame implements ZeroCenter, DrawCentered {
 //        this.setExtendedState(JFrame.MAXIMIZED_BOTH);
 
         this.bezierCurve = new BezierCurve(new BezierCurve.Constants(4.5, 4.5, 0.5),
-                new Translation2d(-9, -3),
+                new Translation2d(2, -3),
                 new Translation2d(-5, 6),
                 new Translation2d(-2, 1),
                 new Translation2d(-6, -6),
@@ -56,7 +56,8 @@ public class BezierCurveGUI extends Frame implements ZeroCenter, DrawCentered {
     }
 
     public void draw() {
-        this.drawGrid();
+        this.drawImage(new ImageIcon("src/beziercurve/Field.png").getImage(), 0, 0, DIMENSION.getX(), DIMENSION.getY());
+//        this.drawGrid();
 
         for (double t = this.bezierCurve.getDifferentBetweenTs(); t < 1; t += this.bezierCurve.getDifferentBetweenTs()) {
             this.drawRobotPose(this.bezierCurve.getLocation(t));
@@ -73,15 +74,21 @@ public class BezierCurveGUI extends Frame implements ZeroCenter, DrawCentered {
         Pose2d robot = this.robot.getPosition();
         double radius = ROBOT_WIDTH / 2;
 
-        Translation2d[] translation2ds = new Translation2d[5];
-        for (int i = 0; i < translation2ds.length - 1; i++) {
+//        Translation2d[] translation2ds = new Translation2d[5];
+//        for (int i = 0; i < translation2ds.length - 1; i++) {
+//            double radians = Math.toRadians(45 + (90 * i)) + robot.getRotation().getRadians();
+//            translation2ds[i] = robot.getTranslation().plus(new Translation2d(radius * Math.cos(radians), radius * Math.sin(radians)));
+//        }
+//        translation2ds[4] = robot.getTranslation().plus(
+//                new Translation2d(
+//                        1.5 * radius * Math.cos(robot.getRotation().getRadians()),
+//                        1.5 * radius * Math.sin(robot.getRotation().getRadians())));
+
+        Translation2d[] translation2ds = new Translation2d[4];
+        for (int i = 0; i < translation2ds.length; i++) {
             double radians = Math.toRadians(45 + (90 * i)) + robot.getRotation().getRadians();
             translation2ds[i] = robot.getTranslation().plus(new Translation2d(radius * Math.cos(radians), radius * Math.sin(radians)));
         }
-        translation2ds[4] = robot.getTranslation().plus(
-                new Translation2d(
-                        1.5 * radius * Math.cos(robot.getRotation().getRadians()),
-                        1.5 * radius * Math.sin(robot.getRotation().getRadians())));
 
         this.fillPolygon(Color.YELLOW, translation2ds);
 

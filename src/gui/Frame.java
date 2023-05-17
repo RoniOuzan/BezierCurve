@@ -271,13 +271,11 @@ public abstract class Frame extends JFrame implements FieldType, DrawType {
         this.update();
     }
 
-    public void drawImage(Image image) {
+    public void drawImage(Image image, int x, int y, int width, int height) {
         ImageIcon imageIcon = new ImageIcon("beziercurve/Field.png");
 
-
-        this.panel.graphics.add(g -> {
-            g.drawImage(image, 0, 0, 1920, 930, (img, infoflags, x, y, width, height) -> true);
-        });
+        this.panel.graphics.add(g ->
+                g.drawImage(image, x, y, width, height, (img, infoflags, x1, y1, w, h) -> true));
     }
 
     public void mousePressed(MouseEvent e) {}
