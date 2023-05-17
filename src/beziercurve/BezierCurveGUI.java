@@ -5,30 +5,36 @@ import beziercurve.pid.TrapezoidProfile;
 import gui.Frame;
 import gui.types.draw.DrawCentered;
 import gui.types.field.ZeroCenter;
+import math.MathUtil;
 import math.geometry.Dimension2d;
 import math.geometry.Pose2d;
 import math.geometry.Rotation2d;
 import math.geometry.Translation2d;
 
+import javax.swing.*;
 import java.awt.*;
 
 public class BezierCurveGUI extends Frame implements ZeroCenter, DrawCentered {
-    private static final double MAX_VALUE = 10.5;
-    private static final int PIXELS_IN_UNIT = (int) (480 / MAX_VALUE);
+    private static final double MAX_VALUE = 8;
+    private static final Dimension2d DIMENSION = new Dimension2d(1920, 930);
+    private static final int PIXELS_IN_UNIT = (int) (DIMENSION.getX() / MAX_VALUE) / 2;
 
     private static final double FPS = 20;
     private static final double ROBOT_WIDTH = 0.91;
-    private static final double TOLERANCE = 0.3;
+    private static final double TOLERANCE = 0.2;
 
     private final BezierCurve bezierCurve;
     private final Robot robot;
 
+    private double currentT = 0;
+
     private final ProfiledPIDController pidController;
 
     public BezierCurveGUI() {
-        super("Bezier Curve", new Dimension2d(960, 960), PIXELS_IN_UNIT);
+        super("Bezier Curve", DIMENSION, PIXELS_IN_UNIT);
+//        this.setExtendedState(JFrame.MAXIMIZED_BOTH);
 
-        this.bezierCurve = new BezierCurve(
+        this.bezierCurve = new BezierCurve(new BezierCurve.Constants(4.5, 4.5, 0.5),
                 new Translation2d(-9, -3),
                 new Translation2d(-5, 6),
                 new Translation2d(-2, 1),
@@ -36,10 +42,14 @@ public class BezierCurveGUI extends Frame implements ZeroCenter, DrawCentered {
                 new Translation2d(3, 3),
                 new Translation2d(7, -1)
         );
-        this.robot = new Robot(new Pose2d(new Translation2d(-3, -4), Rotation2d.fromDegrees(0)),
-                new Robot.Constants(4, 1 / FPS));
+        this.robot = new Robot(new Pose2d(this.bezierCurve.getStartPoint(), Rotation2d.fromDegrees(0)),
+                new Robot.Constants(5, 1 / FPS));
 
-        this.pidController = new ProfiledPIDController(1, 0, 0, new TrapezoidProfile.Constraints(10, 10));
+        this.pidController = new ProfiledPIDController(2, 0, 0,
+                new TrapezoidProfile.Constraints(0.4, 0.4));
+        this.pidController.reset(
+                this.bezierCurve.getDistance(0, this.bezierCurve.getClosestPoint(this.robot.getPosition()).t()),
+                0);
 
         this.draw();
         this.start();
@@ -47,7 +57,6 @@ public class BezierCurveGUI extends Frame implements ZeroCenter, DrawCentered {
 
     public void draw() {
         this.drawGrid();
-        this.repaint();
 
         for (double t = this.bezierCurve.getDifferentBetweenTs(); t < 1; t += this.bezierCurve.getDifferentBetweenTs()) {
             this.drawRobotPose(this.bezierCurve.getLocation(t));
@@ -56,12 +65,11 @@ public class BezierCurveGUI extends Frame implements ZeroCenter, DrawCentered {
         for (Translation2d waypoint : this.bezierCurve.getWaypoints()) {
             this.drawWaypoint(waypoint);
         }
-
-        this.repaint();
     }
 
     public void moveRobot() {
         BezierCurve.State state = this.bezierCurve.getClosestPoint(this.robot.getPosition());
+        currentT = state.t();
         Pose2d robot = this.robot.getPosition();
         double radius = ROBOT_WIDTH / 2;
 
@@ -77,15 +85,47 @@ public class BezierCurveGUI extends Frame implements ZeroCenter, DrawCentered {
 
         this.fillPolygon(Color.YELLOW, translation2ds);
 
-        if (this.robot.getPosition().getTranslation().getDistance(this.bezierCurve.getFinalPoint()) > TOLERANCE)
-            this.robot.drive(this.bezierCurve.getVelocity(state, this.robot.getPosition()));
+        if (this.robot.getPosition().getTranslation().getDistance(this.bezierCurve.getFinalPoint()) > TOLERANCE) {
+            this.robot.drive(this.bezierCurve.getVelocity(state, this.robot.getPosition(), this.calculateVelocity()));
+            Translation2d setpoint = this.robot.getPosition().getTranslation()
+                    .plus(new Translation2d(this.pidController.getSetpoint().position, this.robot.getVelocity().getTranslation().getAngle()));
+            this.fillPoint(setpoint.getX(), setpoint.getY(), convertPixelsToUnits(5), Color.GREEN);
+
+            double curvatureRadius = this.bezierCurve.getCurvatureRadius(state.t());
+            Translation2d curvature = state.pose().getTranslation()
+                    .plus(new Translation2d(
+                            curvatureRadius,
+                            this.bezierCurve.getAngle(state.t()).plus(Rotation2d.fromDegrees(curvatureRadius > 0 ? -90 : 90))
+                    ));
+            this.drawPoint(curvature.getX(), curvature.getY(), Math.abs(curvatureRadius), Color.BLUE);
+        }
     }
 
-    public double calculateVelocity(double t) {
-        double distance = this.robot.getPosition().getTranslation().getDistance(this.bezierCurve.getFinalPoint());
-        double velocity = this.pidController.calculate(distance, 0);
-        System.out.println(velocity);
-        return velocity;
+    public double calculateVelocity() {
+        return this.pidController.calculate(
+                this.bezierCurve.getDistance(0, currentT), this.bezierCurve.getDistance(0, 1));
+    }
+
+    public void writeValues() {
+        String[] texts = {
+                "T: " + MathUtil.limitDot(this.currentT, 4),
+                "Pose: (" + MathUtil.limitDot(this.robot.getPosition().getTranslation().getX(), 3) + ", "
+                        + MathUtil.limitDot(this.robot.getPosition().getTranslation().getY(), 3) + ")",
+                "Angle: " + MathUtil.limitDot(this.robot.getPosition().getRotation().getDegrees(), 3) + " Deg",
+                "Vector: (" + MathUtil.limitDot(this.robot.getVelocity().getTranslation().getX(), 3) + ", "
+                        + MathUtil.limitDot(this.robot.getVelocity().getTranslation().getY(), 3) + ")",
+                "Velocity: " + MathUtil.limitDot(this.robot.getVelocity().getTranslation().getNorm(), 3) + "m/s",
+                "Angular Velocity: " + MathUtil.limitDot(this.robot.getVelocity().getRotation().getDegrees(), 3) + " Deg",
+                "Distance: " + MathUtil.limitDot(this.bezierCurve.getDistance(0, currentT), 3),
+                "Curvature Radius: " + MathUtil.limitDot(this.bezierCurve.getCurvatureRadius(currentT), 3)
+
+        };
+
+        double size = convertPixelsToUnits(20);
+        double space = convertPixelsToUnits(10);
+        for (int i = 0; i < texts.length; i++) {
+            this.write(-MAX_VALUE, MAX_VALUE - ((size + space) * (i + 0.5)), texts[i], size, Color.BLACK);
+        }
     }
 
     public void start() {
@@ -96,6 +136,7 @@ public class BezierCurveGUI extends Frame implements ZeroCenter, DrawCentered {
             this.clearFrame();
             this.draw();
             this.moveRobot();
+            this.writeValues();
             this.repaint();
 
             t += this.bezierCurve.getDifferentBetweenTs() * direction;
@@ -123,24 +164,26 @@ public class BezierCurveGUI extends Frame implements ZeroCenter, DrawCentered {
     }
 
     private void drawGrid() {
-        for (int i = (int) -Math.ceil(MAX_VALUE); i <= Math.floor(MAX_VALUE); i++) {
-            this.drawThinLine(i, this.getDimensionWithUnits().getY() / -2, i, this.getDimensionWithUnits().getY() / 2, Color.BLACK);
+        for (double i = (int) -Math.floor(MAX_VALUE); i <= MAX_VALUE; i += 0.25) {
+            this.drawThinLine(i, this.getDimensionWithUnits().getY() / -2, i, this.getDimensionWithUnits().getY() / 2,
+                    Math.floor(i * 10) / 10d % 1 == 0 ? new Color(60, 60, 60) : new Color(230, 230, 230));
         }
 
-        for (int i = (int) -Math.ceil(MAX_VALUE); i <= Math.floor(MAX_VALUE); i++) {
-            this.drawThinLine(this.getDimensionWithUnits().getX() / -2, i, this.getDimensionWithUnits().getX() / 2, i, Color.BLACK);
+        for (double i = (int) -Math.floor(MAX_VALUE); i <= MAX_VALUE; i += 0.25) {
+            this.drawThinLine(this.getDimensionWithUnits().getX() / -2, i, this.getDimensionWithUnits().getX() / 2, i,
+                    Math.floor(i * 10) / 10d % 1 == 0 ? new Color(60, 60, 60) : new Color(230, 230, 230));
         }
 
         this.drawLine(0, this.getDimensionWithUnits().getY() / -2, 0, this.getDimensionWithUnits().getY() / 2, convertPixelsToUnits(5), Color.BLACK);
         this.drawLine(this.getDimensionWithUnits().getX() / -2, 0, this.getDimensionWithUnits().getX() / 2, 0, convertPixelsToUnits(5), Color.BLACK);
 
         double textSize = convertPixelsToUnits(20);
-        for (int i = 0; i <= MAX_VALUE; i++) {
+        for (int i = 0; i <= MAX_VALUE; i += MAX_VALUE >= 15 ? 5 : 1) {
             this.write(0, i - (textSize / 2), " " + i, textSize, Color.BLACK);
             if (i != 0)
                 this.write(0, -i - (textSize / 2), -i + "", textSize, Color.BLACK);
         }
-        for (int i = 0; i <= MAX_VALUE; i++) {
+        for (int i = 0; i <= MAX_VALUE; i += MAX_VALUE >= 15 ? 5 : 1) {
             this.write(i - (textSize / 2), -textSize, " " + i, textSize, Color.BLACK);
             if (i != 0)
                 this.write(-i - (textSize / 2), -textSize, -i + "", textSize, Color.BLACK);

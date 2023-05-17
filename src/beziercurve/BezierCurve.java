@@ -1,26 +1,29 @@
 package beziercurve;
 
 import math.geometry.*;
+import util.Entry;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
+import java.util.function.Function;
 
+@SuppressWarnings(value = "unused")
 public class BezierCurve {
+    private static final double DX = 0.0001;
+
     private final List<Translation2d> waypoints;
     private final double differentBetweenTs;
 
-    private boolean hasBeenInLast;
+    private final Constants constants;
 
-    public BezierCurve(List<Translation2d> waypoints) {
+    public BezierCurve(Constants constants, List<Translation2d> waypoints) {
+        this.constants = constants;
         this.waypoints = waypoints;
         this.differentBetweenTs = 0.02 / waypoints.size();
-
-        this.hasBeenInLast = false;
     }
 
-    public BezierCurve(Translation2d... waypoints) {
-        this(List.of(waypoints));
+    public BezierCurve(Constants constants, Translation2d... waypoints) {
+        this(constants, List.of(waypoints));
     }
 
     public State getClosestPoint(Pose2d robotPose) {
@@ -30,8 +33,6 @@ public class BezierCurve {
         for (double t = this.differentBetweenTs; t <= 1; t += this.differentBetweenTs) {
             Pose2d pose = this.getPosition(t);
             double distance = robotPose.getTranslation().getDistance(pose.getTranslation());
-//            if (Math.abs(distance) <= 0.001)
-//                return pose;
 
             if (distance < minDistance) {
                 minDistance = distance;
@@ -40,23 +41,24 @@ public class BezierCurve {
             }
         }
 
-        if (Math.abs(minT - 1) <= this.differentBetweenTs) {
-            hasBeenInLast = true;
-        }
-
         return new State(output, minT);
     }
 
     public Pose2d getVelocity(State state, Pose2d robot, double velocity) {
-        Translation2d vector = new Translation2d(velocity, 0).rotateBy(this.getAngle(state.t))
-                .plus(state.pose.getTranslation().minus(robot.getTranslation()).times(3));
-        return new Pose2d(vector, Rotation2d.fromDegrees(0));
+        Translation2d vector = new Translation2d(1 - constants.errorCorrectorPower, this.getAngle(state.t))
+                .plus(state.pose.getTranslation().minus(robot.getTranslation()).times(constants.errorCorrectorPower));
+
+        double curvature = constants.maxVel / Math.pow(this.getCurvatureRadius(state.t), 2);
+        velocity = Math.min(constants.maxVel - curvature, velocity);
+
+        System.out.println(velocity + ", " + (constants.maxVel - curvature));
+
+        return new Pose2d(new Translation2d(velocity, vector.getAngle()), Rotation2d.fromDegrees(0));
     }
 
     public Pose2d getVelocity(State state, Pose2d robot) {
-        return this.getVelocity(state, robot, (robot.getTranslation().getDistance(getFinalPoint())) * 2);
+        return this.getVelocity(state, robot, (robot.getTranslation().getDistance(getFinalPoint())) * 3);
     }
-
 
     public double getX(double t) {
         List<Double> pointsX = waypoints.stream().map(Translation2d::getX).toList();
@@ -90,17 +92,46 @@ public class BezierCurve {
         return new Pose2d(this.getLocation(t), this.getAngle(t));
     }
 
-    private double getSlopeX(double t) {
-        return (this.getX(t + 0.0001) - this.getX(t - 0.0001)) / 0.0002;
+    public double getXDerivative(double t) {
+        return this.calculateDerivative(t, this::getX);
     }
 
-    private double getSlopeY(double t) {
-        return (this.getY(t + 0.0001) - this.getY(t - 0.0001)) / 0.0002;
+    public double getYDerivative(double t) {
+        return this.calculateDerivative(t, this::getY);
+    }
+
+    public double getXSecondDerivative(double t) {
+        return this.calculateDerivative(t, this::getXDerivative);
+    }
+
+    public double getYSecondDerivative(double t) {
+        return this.calculateDerivative(t, this::getYDerivative);
+    }
+
+    private double calculateDerivative(double x, Function<Double, Double> calc) {
+        return (calc.apply(x + DX) - calc.apply(x - DX)) / (2 * DX);
     }
 
     public Rotation2d getAngle(double t) {
-        Translation2d angle = this.getLocation(t + 0.001).minus(this.getLocation(t - 0.001));
+        Translation2d angle = this.getLocation(t + DX).minus(this.getLocation(t - DX));
         return new Rotation2d(angle.getX(), angle.getY());
+    }
+
+    public double getDistance(double t1, double t2) {
+        double sum = 0;
+        for (double t = t1; t < t2; t += DX) {
+            sum += (Math.hypot(this.getXDerivative(t - DX), this.getYDerivative(t - DX)) + Math.hypot(this.getXDerivative(t + DX), this.getYDerivative(t + DX))) * (0.5 * DX);
+        }
+        return sum;
+    }
+
+    public double getCurvatureRadius(double t) {
+        double d1x = this.getXDerivative(t);
+        double d1y = this.getYDerivative(t);
+        double d2x = this.getXSecondDerivative(t);
+        double d2y = this.getYSecondDerivative(t);
+
+        return Math.pow((d1x * d1x) + (d1y * d1y), 1.5) / ((d1x * d2y) - (d1y * d2x));
     }
 
     public Translation2d getFinalPoint() {
@@ -119,13 +150,7 @@ public class BezierCurve {
         return differentBetweenTs;
     }
 
-    public static class State {
-        public final Pose2d pose;
-        public final double t;
+    public record State(Pose2d pose, double t) {}
 
-        public State(Pose2d pose, double t) {
-            this.pose = pose;
-            this.t = t;
-        }
-    }
+    public record Constants(double maxVel, double maxAccel, double errorCorrectorPower) {}
 }

@@ -7,10 +7,13 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
+import java.awt.image.ImageObserver;
 import java.util.ArrayList;
+import java.util.ConcurrentModificationException;
 import java.util.List;
 import java.util.function.Consumer;
 
+@SuppressWarnings(value = "unused")
 public abstract class Frame extends JFrame implements FieldType, DrawType {
     private final Panel panel;
     private final Dimension2d dimension;
@@ -167,7 +170,6 @@ public abstract class Frame extends JFrame implements FieldType, DrawType {
 
         this.panel.graphics.add(g -> {
             g.setColor(color);
-            System.out.println(X);
             g.fillRect(convertXWithSize(X, newWidth, dimension), convertYWithSize(Y, newHeight, dimension), convertWidth(newWidth), convertHeight(newHeight));
         });
         this.update();
@@ -269,6 +271,15 @@ public abstract class Frame extends JFrame implements FieldType, DrawType {
         this.update();
     }
 
+    public void drawImage(Image image) {
+        ImageIcon imageIcon = new ImageIcon("beziercurve/Field.png");
+
+
+        this.panel.graphics.add(g -> {
+            g.drawImage(image, 0, 0, 1920, 930, (img, infoflags, x, y, width, height) -> true);
+        });
+    }
+
     public void mousePressed(MouseEvent e) {}
     public void mouseReleased(MouseEvent e) {}
     public void mouseEntered(MouseEvent e) {}
@@ -310,7 +321,9 @@ public abstract class Frame extends JFrame implements FieldType, DrawType {
 
         @Override
         protected void paintComponent(Graphics g) {
-            this.graphics.forEach(c -> c.accept(g));
+            try {
+                this.graphics.forEach(c -> c.accept(g));
+            } catch (ConcurrentModificationException ignored) {}
         }
     }
 }

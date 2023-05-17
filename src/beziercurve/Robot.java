@@ -4,11 +4,13 @@ import math.geometry.*;
 
 public class Robot {
     private Pose2d position;
+    private Pose2d velocity;
 
     private final Constants constants;
 
     public Robot(Pose2d position, Constants constants) {
         this.position = position;
+        this.velocity = new Pose2d();
         this.constants = constants;
     }
 
@@ -20,19 +22,16 @@ public class Robot {
         this.position = new Pose2d(
                         this.position.getTranslation().plus(velocity.getTranslation().times(constants.period)),
                         this.position.getRotation().rotateBy(Rotation2d.fromDegrees(velocity.getRotation().getDegrees() * constants.period)));
+        this.velocity = velocity;
     }
 
     public Pose2d getPosition() {
         return position;
     }
 
-    public static class Constants {
-        public final double maxVel;
-        public final double period;
-
-        public Constants(double maxVel, double period) {
-            this.maxVel = maxVel;
-            this.period = period;
-        }
+    public Pose2d getVelocity() {
+        return velocity;
     }
+
+    public record Constants(double maxVel, double period) {}
 }

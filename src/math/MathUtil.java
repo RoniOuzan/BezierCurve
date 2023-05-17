@@ -141,5 +141,17 @@ public final class MathUtil {
     public static double interpolate(double startValue, double endValue, double t) {
         return startValue + (endValue - startValue) * MathUtil.clamp(t, 0, 1);
     }
+
+    /**
+     * Removes small numbers to make the value more readable or round it to a specific use
+     *
+     * @param value The value that we want to change
+     * @param numbersAfterDot The amount of number after the dot to save
+     * @return The new number after the changes
+     */
+    public static double limitDot(double value, int numbersAfterDot) {
+        double power = Math.pow(10, numbersAfterDot);
+        return Math.round(value * power) / power;
+    }
 }
 
