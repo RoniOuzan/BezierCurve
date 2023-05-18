@@ -1,9 +1,11 @@
 package beziercurve;
 
-import math.geometry.*;
-import util.Entry;
+import math.geometry.Pose2d;
+import math.geometry.Rotation2d;
+import math.geometry.Translation2d;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.function.Function;
 
@@ -19,11 +21,11 @@ public class BezierCurve {
     public BezierCurve(Constants constants, List<Translation2d> waypoints) {
         this.constants = constants;
         this.waypoints = waypoints;
-        this.differentBetweenTs = 0.02 / waypoints.size();
+        this.differentBetweenTs = 0.01 / waypoints.size();
     }
 
     public BezierCurve(Constants constants, Translation2d... waypoints) {
-        this(constants, List.of(waypoints));
+        this(constants, new ArrayList<>(Arrays.asList(waypoints)));
     }
 
     public State getClosestPoint(Pose2d robotPose) {
@@ -48,12 +50,10 @@ public class BezierCurve {
         Translation2d vector = new Translation2d(1 - constants.errorCorrectorPower, this.getAngle(state.t))
                 .plus(state.pose.getTranslation().minus(robot.getTranslation()).times(constants.errorCorrectorPower));
 
-        double curvature = constants.maxVel / Math.pow(this.getCurvatureRadius(state.t), 2);
-        velocity = Math.min(constants.maxVel - curvature, velocity);
+        double curvature = 1 / Math.abs(this.getCurvatureRadius(state.t));
+        velocity = Math.min(constants.maxVel - Math.min(curvature, 3.5), velocity);
 
-        System.out.println(velocity + ", " + (constants.maxVel - curvature));
-
-        return new Pose2d(new Translation2d(velocity, vector.getAngle()), Rotation2d.fromDegrees(0));
+        return new Pose2d(new Translation2d(velocity, vector.getAngle()), this.getAngle(state.t));
     }
 
     public Pose2d getVelocity(State state, Pose2d robot) {
@@ -70,6 +70,26 @@ public class BezierCurve {
             pointsX = newX;
         }
         return pointsX.get(0);
+    }
+
+    public Translation2d[] getBezierPoint(double t, int times) {
+        List<Double> pointsX = waypoints.stream().map(Translation2d::getX).toList();
+        List<Double> pointsY = waypoints.stream().map(Translation2d::getY).toList();
+        for (int j = 0; j < times; j++) {
+            List<Double> newX = new ArrayList<>();
+            List<Double> newY = new ArrayList<>();
+            for (int i = 0; i < pointsX.size() - 1; i++) {
+                newX.add(pointsX.get(i) + (t * (pointsX.get(i + 1) - pointsX.get(i))));
+                newY.add(pointsY.get(i) + (t * (pointsY.get(i + 1) - pointsY.get(i))));
+            }
+            pointsX = newX;
+            pointsY = newY;
+        }
+        Translation2d[] points = new Translation2d[pointsX.size()];
+        for (int i = 0; i < points.length; i++) {
+            points[i] = new Translation2d(pointsX.get(i), pointsY.get(i));
+        }
+        return points;
     }
 
     public double getY(double t) {
@@ -108,8 +128,8 @@ public class BezierCurve {
         return this.calculateDerivative(t, this::getYDerivative);
     }
 
-    private double calculateDerivative(double x, Function<Double, Double> calc) {
-        return (calc.apply(x + DX) - calc.apply(x - DX)) / (2 * DX);
+    private double calculateDerivative(double x, Function<Double, Double> function) {
+        return (function.apply(x + DX) - function.apply(x - DX)) / (2 * DX);
     }
 
     public Rotation2d getAngle(double t) {
@@ -123,6 +143,10 @@ public class BezierCurve {
             sum += (Math.hypot(this.getXDerivative(t - DX), this.getYDerivative(t - DX)) + Math.hypot(this.getXDerivative(t + DX), this.getYDerivative(t + DX))) * (0.5 * DX);
         }
         return sum;
+    }
+
+    public double getDistance(double t) {
+        return getDistance(0, t);
     }
 
     public double getCurvatureRadius(double t) {
@@ -146,8 +170,16 @@ public class BezierCurve {
         return waypoints;
     }
 
+    public void setWaypoint(int index, Translation2d waypoint) {
+        this.waypoints.set(index, waypoint);
+    }
+
     public double getDifferentBetweenTs() {
         return differentBetweenTs;
+    }
+
+    public double getPathLength() {
+        return this.getDistance(0, 1);
     }
 
     public record State(Pose2d pose, double t) {}

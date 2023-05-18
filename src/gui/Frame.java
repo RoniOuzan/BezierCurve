@@ -5,9 +5,7 @@ import math.geometry.Translation2d;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.MouseEvent;
-import java.awt.event.MouseListener;
-import java.awt.image.ImageObserver;
+import java.awt.event.*;
 import java.util.ArrayList;
 import java.util.ConcurrentModificationException;
 import java.util.List;
@@ -28,7 +26,9 @@ public abstract class Frame extends JFrame implements FieldType, DrawType {
         this.panel = new Panel();
         this.add(this.panel);
 
+        this.addKeyListener(new KeyHandler());
         this.addMouseListener(new MouseHandler());
+        this.addMouseMotionListener(new MouseMotionHandler());
 
         this.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
         this.setResizable(false);
@@ -55,7 +55,8 @@ public abstract class Frame extends JFrame implements FieldType, DrawType {
         return units * this.pixelsInOneUnit;
     }
 
-    protected double convertPixelsToUnits(double pixels) {
+    @Override
+    public double convertPixelsToUnits(double pixels) {
         return pixels / this.pixelsInOneUnit;
     }
 
@@ -278,15 +279,25 @@ public abstract class Frame extends JFrame implements FieldType, DrawType {
                 g.drawImage(image, x, y, width, height, (img, infoflags, x1, y1, w, h) -> true));
     }
 
+    protected Translation2d getMouseTranslation(MouseEvent e) {
+        return new Translation2d(convertPixelsToX(e.getX(), this.dimension), convertPixelsToY(e.getY(), this.dimension));
+    }
+
     public void mousePressed(MouseEvent e) {}
     public void mouseReleased(MouseEvent e) {}
     public void mouseEntered(MouseEvent e) {}
     public void mouseExited(MouseEvent e) {}
 
+    public void mouseDragged(MouseEvent e) {}
+    public void mouseMoved(MouseEvent e) {}
+
+    public void keyTyped(KeyEvent e) {}
+    public void keyPressed(KeyEvent e) {}
+    public void keyReleased(KeyEvent e) {}
+
     private class MouseHandler implements MouseListener {
         @Override
         public void mouseClicked(MouseEvent e) {
-
         }
 
         @Override
@@ -307,6 +318,35 @@ public abstract class Frame extends JFrame implements FieldType, DrawType {
         @Override
         public void mouseExited(MouseEvent e) {
             Frame.this.mouseExited(e);
+        }
+    }
+
+    private class MouseMotionHandler implements MouseMotionListener {
+        @Override
+        public void mouseDragged(MouseEvent e) {
+            Frame.this.mouseDragged(e);
+        }
+
+        @Override
+        public void mouseMoved(MouseEvent e) {
+            Frame.this.mouseMoved(e);
+        }
+    }
+
+    private class KeyHandler implements KeyListener {
+        @Override
+        public void keyTyped(KeyEvent e) {
+            Frame.this.keyTyped(e);
+        }
+
+        @Override
+        public void keyPressed(KeyEvent e) {
+            Frame.this.keyPressed(e);
+        }
+
+        @Override
+        public void keyReleased(KeyEvent e) {
+            Frame.this.keyReleased(e);
         }
     }
 

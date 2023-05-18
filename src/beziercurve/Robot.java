@@ -21,12 +21,16 @@ public class Robot {
 
         this.position = new Pose2d(
                         this.position.getTranslation().plus(velocity.getTranslation().times(constants.period)),
-                        this.position.getRotation().rotateBy(Rotation2d.fromDegrees(velocity.getRotation().getDegrees() * constants.period)));
+                        velocity.getRotation()); // this.position.getRotation().rotateBy(Rotation2d.fromDegrees(velocity.getRotation().getDegrees() * constants.period))
         this.velocity = velocity;
     }
 
     public Pose2d getPosition() {
         return position;
+    }
+
+    public void setPosition(Pose2d position) {
+        this.position = position;
     }
 
     public Pose2d getVelocity() {
