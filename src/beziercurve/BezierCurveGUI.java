@@ -1,5 +1,6 @@
 package beziercurve;
 
+import beziercurve.pid.PIDPreset;
 import beziercurve.pid.TrapezoidProfile;
 import gui.Frame;
 import gui.types.draw.DrawCentered;
@@ -14,27 +15,28 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
-import java.util.List;
+import java.awt.event.MouseWheelEvent;
 
 public class BezierCurveGUI extends Frame implements ZeroCenter, DrawCentered {
-    private static final double MAX_VALUE = 8.27;
+    private static final boolean IS_CHARGED_UP_FIELD = false;
+
+    private static final double DEFAULT_MAX_VALUE = 10;
     private static final Dimension2d DIMENSION = new Dimension2d(1713, 837);
-    private static final int PIXELS_IN_UNIT = (int) (DIMENSION.getX() / MAX_VALUE) / 2;
+    private static final double PIXELS_IN_ONE_UNIT = convertMaxValueToPixels(DEFAULT_MAX_VALUE);
 
     private static final double FPS = 20;
     private static final double ROBOT_WIDTH = 0.91;
     private static final double BUMPER_WIDTH = 0.08;
-    private static final double TOLERANCE = 0.2;
 
     private final BezierCurve bezierCurve;
     private final Robot robot;
 
     private final BezierFollower bezierFollower;
-    private BezierCurve.State currentState;
+
+    private double maxValue = DEFAULT_MAX_VALUE;
 
     public BezierCurveGUI() {
-        super("Bezier Curve", DIMENSION, PIXELS_IN_UNIT);
-//        this.setExtendedState(JFrame.MAXIMIZED_BOTH);
+        super("Bezier Curve", DIMENSION, PIXELS_IN_ONE_UNIT);
 
         this.bezierCurve = new BezierCurve(new BezierCurve.Constants(4.5, 4.5, 0.5),
                 new Translation2d(2, -3),
@@ -48,16 +50,19 @@ public class BezierCurveGUI extends Frame implements ZeroCenter, DrawCentered {
                 new Robot.Constants(5, 1 / FPS));
 
         this.bezierFollower = new BezierFollower(this.bezierCurve, this.robot,
-                new BezierFollower.Constants(2, 0, 0,
-                        new TrapezoidProfile.Constraints(0.4, 0.4)));
+                new BezierFollower.Constants(0, 270,
+                        new PIDPreset(3, 0, 0, 1, 10),
+                        new PIDPreset(2, 0, 0, 5, 10)));
 
         this.bezierFollower.start();
         this.start();
     }
 
     public void drawBackground() {
-        this.drawImage(new ImageIcon("src/beziercurve/Field.png").getImage(), 0, 0, DIMENSION.getX(), DIMENSION.getY());
-//        this.drawGrid();
+        if (IS_CHARGED_UP_FIELD)
+            this.drawImage(new ImageIcon("src/beziercurve/Field.png").getImage(), 0, 0, DIMENSION.getX(), DIMENSION.getY());
+        else
+            this.drawGrid();
 
         for (int i = 0; i < this.bezierCurve.getWaypoints().size() - 1; i++) {
             Color color = new Color(0, (int) (255 * (i / (this.bezierCurve.getWaypoints().size() - 1d))), 0);
@@ -124,11 +129,12 @@ public class BezierCurveGUI extends Frame implements ZeroCenter, DrawCentered {
                 "T: " + MathUtil.limitDot(this.bezierFollower.getState().t(), 4),
                 "Pose: (" + MathUtil.limitDot(this.robot.getPosition().getTranslation().getX(), 3) + ", "
                         + MathUtil.limitDot(this.robot.getPosition().getTranslation().getY(), 3) + ")",
-                "Angle: " + MathUtil.limitDot(this.robot.getPosition().getRotation().getDegrees(), 3) + " Deg",
+                "Heading: " + MathUtil.limitDot(this.robot.getPosition().getRotation().getDegrees(), 3) + " Deg",
                 "Vector: (" + MathUtil.limitDot(this.robot.getVelocity().getTranslation().getX(), 3) + ", "
                         + MathUtil.limitDot(this.robot.getVelocity().getTranslation().getY(), 3) + ")",
                 "Velocity: " + MathUtil.limitDot(this.robot.getVelocity().getTranslation().getNorm(), 3) + "m/s",
-                "Angular Velocity: " + MathUtil.limitDot(this.robot.getVelocity().getRotation().getDegrees(), 3) + " Deg",
+                "Accelration: " + MathUtil.limitDot(this.robot.getAcceleration(), 3) + "m/s",
+                "Omega Velocity: " + MathUtil.limitDot(this.robot.getVelocity().getRotation().getDegrees(), 3) + " deg/s",
                 "Distance: " + MathUtil.limitDot(this.bezierCurve.getDistance(0, this.bezierFollower.getState().t()), 3) + " / " + MathUtil.limitDot(this.bezierCurve.getPathLength(), 3),
                 "Curvature Radius: " + MathUtil.limitDot(this.bezierCurve.getCurvatureRadius(this.bezierFollower.getState().t()), 3)
         };
@@ -136,7 +142,7 @@ public class BezierCurveGUI extends Frame implements ZeroCenter, DrawCentered {
         double size = convertPixelsToUnits(20);
         double space = convertPixelsToUnits(10);
         for (int i = 0; i < texts.length; i++) {
-            this.write(-MAX_VALUE + convertPixelsToUnits(5), (MAX_VALUE * ((double) DIMENSION.getY() / DIMENSION.getX()) - ((size + space) * (i + 1))), texts[i], size, Color.BLACK);
+            this.write(-this.maxValue + convertPixelsToUnits(5), (this.maxValue * ((double) DIMENSION.getY() / DIMENSION.getX()) - ((size + space) * (i + 1))), texts[i], size, Color.BLACK);
         }
     }
 
@@ -161,11 +167,18 @@ public class BezierCurveGUI extends Frame implements ZeroCenter, DrawCentered {
         }
     }
 
+    @Override
+    public void mouseWheelMoved(MouseWheelEvent e) {
+        this.maxValue += e.getPreciseWheelRotation();
+    }
+
     public void start() {
         double t = 0;
         int direction = 1;
 
         while (true) {
+            this.setPixelsInOneUnit(convertMaxValueToPixels(this.maxValue));
+
             this.clearFrame();
             this.drawBackground();
             this.bezierFollower.update();
@@ -200,12 +213,12 @@ public class BezierCurveGUI extends Frame implements ZeroCenter, DrawCentered {
     }
 
     private void drawGrid() {
-        for (double i = (int) -Math.floor(MAX_VALUE); i <= MAX_VALUE; i += 0.25) {
+        for (double i = (int) -Math.floor(this.maxValue); i <= this.maxValue; i += 0.25) {
             this.drawThinLine(i, this.getDimensionWithUnits().getY() / -2, i, this.getDimensionWithUnits().getY() / 2,
                     Math.floor(i * 10) / 10d % 1 == 0 ? new Color(60, 60, 60) : new Color(230, 230, 230));
         }
 
-        for (double i = (int) -Math.floor(MAX_VALUE); i <= MAX_VALUE; i += 0.25) {
+        for (double i = (int) -Math.floor(this.maxValue); i <= this.maxValue; i += 0.25) {
             this.drawThinLine(this.getDimensionWithUnits().getX() / -2, i, this.getDimensionWithUnits().getX() / 2, i,
                     Math.floor(i * 10) / 10d % 1 == 0 ? new Color(60, 60, 60) : new Color(230, 230, 230));
         }
@@ -214,15 +227,19 @@ public class BezierCurveGUI extends Frame implements ZeroCenter, DrawCentered {
         this.drawLine(this.getDimensionWithUnits().getX() / -2, 0, this.getDimensionWithUnits().getX() / 2, 0, convertPixelsToUnits(5), Color.BLACK);
 
         double textSize = convertPixelsToUnits(20);
-        for (int i = 0; i <= MAX_VALUE; i += MAX_VALUE >= 15 ? 5 : 1) {
+        for (int i = 0; i <= this.maxValue; i += this.maxValue / 10) {
             this.write(0, i - (textSize / 2), " " + i, textSize, Color.BLACK);
             if (i != 0)
                 this.write(0, -i - (textSize / 2), -i + "", textSize, Color.BLACK);
         }
-        for (int i = 0; i <= MAX_VALUE; i += MAX_VALUE >= 15 ? 5 : 1) {
+        for (int i = 0; i <= this.maxValue; i += this.maxValue / 10 ) {
             this.write(i - (textSize / 2), -textSize, " " + i, textSize, Color.BLACK);
             if (i != 0)
                 this.write(-i - (textSize / 2), -textSize, -i + "", textSize, Color.BLACK);
         }
+    }
+
+    private static double convertMaxValueToPixels(double maxValue) {
+        return (DIMENSION.getX() / maxValue) / 2;
     }
 }

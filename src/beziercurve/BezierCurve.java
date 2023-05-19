@@ -46,18 +46,14 @@ public class BezierCurve {
         return new State(output, minT);
     }
 
-    public Pose2d getVelocity(State state, Pose2d robot, double velocity) {
+    public Pose2d getVelocity(State state, Pose2d robot, double velocity, double omega) {
         Translation2d vector = new Translation2d(1 - constants.errorCorrectorPower, this.getAngle(state.t))
                 .plus(state.pose.getTranslation().minus(robot.getTranslation()).times(constants.errorCorrectorPower));
 
         double curvature = 1 / Math.abs(this.getCurvatureRadius(state.t));
         velocity = Math.min(constants.maxVel - Math.min(curvature, 3.5), velocity);
 
-        return new Pose2d(new Translation2d(velocity, vector.getAngle()), this.getAngle(state.t));
-    }
-
-    public Pose2d getVelocity(State state, Pose2d robot) {
-        return this.getVelocity(state, robot, (robot.getTranslation().getDistance(getFinalPoint())) * 3);
+        return new Pose2d(new Translation2d(velocity, vector.getAngle()), Rotation2d.fromDegrees(omega));
     }
 
     public double getX(double t) {
@@ -179,7 +175,11 @@ public class BezierCurve {
     }
 
     public double getPathLength() {
-        return this.getDistance(0, 1);
+        return this.getDistance(1);
+    }
+
+    public Constants getConstants() {
+        return constants;
     }
 
     public record State(Pose2d pose, double t) {}

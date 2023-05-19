@@ -10,15 +10,16 @@ import java.util.ArrayList;
 import java.util.ConcurrentModificationException;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 @SuppressWarnings(value = "unused")
-public abstract class Frame extends JFrame implements FieldType, DrawType {
+public abstract class   Frame extends JFrame implements FieldType, DrawType {
     private final Panel panel;
     private final Dimension2d dimension;
 
-    private final int pixelsInOneUnit;
+    private double pixelsInOneUnit;
 
-    public Frame(String title, Dimension2d frameSize, Color background, int pixelsInOneUnit) {
+    public Frame(String title, Dimension2d frameSize, Color background, double pixelsInOneUnit) {
         super(title);
         this.dimension = frameSize;
         this.pixelsInOneUnit = pixelsInOneUnit;
@@ -29,6 +30,7 @@ public abstract class Frame extends JFrame implements FieldType, DrawType {
         this.addKeyListener(new KeyHandler());
         this.addMouseListener(new MouseHandler());
         this.addMouseMotionListener(new MouseMotionHandler());
+        this.addMouseWheelListener(new MouseWheelHandler());
 
         this.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
         this.setResizable(false);
@@ -39,7 +41,7 @@ public abstract class Frame extends JFrame implements FieldType, DrawType {
         this.repaint();
     }
 
-    public Frame(String title, Dimension2d frameSize, int pixelsInOneUnit) {
+    public Frame(String title, Dimension2d frameSize, double pixelsInOneUnit) {
         this(title, frameSize, Color.WHITE, pixelsInOneUnit);
     }
 
@@ -53,6 +55,10 @@ public abstract class Frame extends JFrame implements FieldType, DrawType {
 
     protected double convertUnits(double units) {
         return units * this.pixelsInOneUnit;
+    }
+
+    protected void setPixelsInOneUnit(double pixelsInOneUnit) {
+        this.pixelsInOneUnit = pixelsInOneUnit;
     }
 
     @Override
@@ -295,6 +301,8 @@ public abstract class Frame extends JFrame implements FieldType, DrawType {
     public void keyPressed(KeyEvent e) {}
     public void keyReleased(KeyEvent e) {}
 
+    public void mouseWheelMoved(MouseWheelEvent e) {}
+
     private class MouseHandler implements MouseListener {
         @Override
         public void mouseClicked(MouseEvent e) {
@@ -330,6 +338,13 @@ public abstract class Frame extends JFrame implements FieldType, DrawType {
         @Override
         public void mouseMoved(MouseEvent e) {
             Frame.this.mouseMoved(e);
+        }
+    }
+
+    private class MouseWheelHandler implements MouseWheelListener {
+        @Override
+        public void mouseWheelMoved(MouseWheelEvent e) {
+            Frame.this.mouseWheelMoved(e);
         }
     }
 
