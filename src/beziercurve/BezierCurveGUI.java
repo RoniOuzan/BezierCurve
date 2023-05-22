@@ -18,7 +18,7 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseWheelEvent;
 
 public class BezierCurveGUI extends Frame implements ZeroCenter, DrawCentered {
-    private static final boolean IS_CHARGED_UP_FIELD = false;
+    private static final boolean IS_CHARGED_UP_FIELD = true;
 
     private static final double DEFAULT_MAX_VALUE = 10;
     private static final Dimension2d DIMENSION = new Dimension2d(1713, 837);
@@ -38,7 +38,7 @@ public class BezierCurveGUI extends Frame implements ZeroCenter, DrawCentered {
     public BezierCurveGUI() {
         super("Bezier Curve", DIMENSION, PIXELS_IN_ONE_UNIT);
 
-        this.bezierCurve = new BezierCurve(new BezierCurve.Constants(4.5, 4.5, 0.5),
+        this.bezierCurve = new BezierCurve(new BezierCurve.Constants(4.5, 4.5, 0.7),
                 new Translation2d(2, -3),
                 new Translation2d(-5, 2),
 //                new Translation2d(-2, 1),
@@ -50,9 +50,9 @@ public class BezierCurveGUI extends Frame implements ZeroCenter, DrawCentered {
                 new Robot.Constants(5, 1 / FPS));
 
         this.bezierFollower = new BezierFollower(this.bezierCurve, this.robot,
-                new BezierFollower.Constants(0, 270,
-                        new PIDPreset(3, 0, 0, 1, 10),
-                        new PIDPreset(2, 0, 0, 5, 10)));
+                new BezierFollower.Constants(160, 0,
+                        new PIDPreset(3.5, 0, 0, 1, 10),
+                        new PIDPreset(5, 0, 0, 10, 100)));
 
         this.bezierFollower.start();
         this.start();
@@ -107,21 +107,32 @@ public class BezierCurveGUI extends Frame implements ZeroCenter, DrawCentered {
                 ));
         this.drawPoint(curvature.getX(), curvature.getY(), Math.abs(curvatureRadius), Color.BLUE);
 
-        double bumperRadius = Math.hypot(ROBOT_WIDTH / 2, ROBOT_WIDTH / 2);
-        Translation2d[] bumperEdges = new Translation2d[4];
-        for (int i = 0; i < bumperEdges.length; i++) {
-            double radians = Math.toRadians(45 + (90 * i)) + robot.getRotation().getRadians();
-            bumperEdges[i] = robot.getTranslation().plus(new Translation2d(bumperRadius * Math.cos(radians), bumperRadius * Math.sin(radians)));
-        }
-        this.fillPolygon(Color.RED, bumperEdges);
+        Translation2d omegaSetpoint = this.robot.getPosition().getTranslation()
+                .plus(new Translation2d(2 * ROBOT_WIDTH,
+                        Rotation2d.fromDegrees(this.bezierFollower.getOmegaController().getSetpoint().position)));
+        this.fillPoint(omegaSetpoint.getX(), omegaSetpoint.getY(), convertPixelsToUnits(5), Color.GREEN);
 
-        double robotRadius = Math.hypot((ROBOT_WIDTH / 2) - BUMPER_WIDTH, (ROBOT_WIDTH / 2) - BUMPER_WIDTH);
-        Translation2d[] robotEdges = new Translation2d[4];
-        for (int i = 0; i < robotEdges.length; i++) {
-            double radians = Math.toRadians(45 + (90 * i)) + robot.getRotation().getRadians();
-            robotEdges[i] = robot.getTranslation().plus(new Translation2d(robotRadius * Math.cos(radians), robotRadius * Math.sin(radians)));
-        }
-        this.fillPolygon(Color.GRAY, robotEdges);
+        this.drawImage(new ImageIcon("src/beziercurve/Robot.png").getImage(),
+                this.robot.getPosition().getX(),
+                this.robot.getPosition().getY(),
+                ROBOT_WIDTH, ROBOT_WIDTH,
+                this.robot.getPosition().getRotation().getDegrees());
+
+//        double bumperRadius = Math.hypot(ROBOT_WIDTH / 2, ROBOT_WIDTH / 2);
+//        Translation2d[] bumperEdges = new Translation2d[4];
+//        for (int i = 0; i < bumperEdges.length; i++) {
+//            double radians = Math.toRadians(45 + (90 * i)) + robot.getRotation().getRadians();
+//            bumperEdges[i] = robot.getTranslation().plus(new Translation2d(bumperRadius * Math.cos(radians), bumperRadius * Math.sin(radians)));
+//        }
+//        this.fillPolygon(Color.RED, bumperEdges);
+//
+//        double robotRadius = Math.hypot((ROBOT_WIDTH / 2) - BUMPER_WIDTH, (ROBOT_WIDTH / 2) - BUMPER_WIDTH);
+//        Translation2d[] robotEdges = new Translation2d[4];
+//        for (int i = 0; i < robotEdges.length; i++) {
+//            double radians = Math.toRadians(45 + (90 * i)) + robot.getRotation().getRadians();
+//            robotEdges[i] = robot.getTranslation().plus(new Translation2d(robotRadius * Math.cos(radians), robotRadius * Math.sin(radians)));
+//        }
+//        this.fillPolygon(Color.GRAY, robotEdges);
     }
 
     public void writeValues() {

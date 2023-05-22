@@ -278,11 +278,19 @@ public abstract class   Frame extends JFrame implements FieldType, DrawType {
         this.update();
     }
 
-    public void drawImage(Image image, int x, int y, int width, int height) {
-        ImageIcon imageIcon = new ImageIcon("beziercurve/Field.png");
+    public void drawImage(Image image, double x, double y, double width, double height, double angle) {
+        this.panel.graphics.add(g -> {
+            ((Graphics2D) g).rotate(Math.toRadians(-angle), convertX(convertUnits(x), dimension), convertY(convertUnits(y), dimension));
+            g.drawImage(image,
+                    convertX(convertUnits(x - (width / 2)), dimension),
+                    convertY(convertUnits(y + (height / 2)), dimension),
+                    (int) convertUnits(width), (int) convertUnits(height), (img, infoFlags, x1, y1, w, h) -> true);
+            ((Graphics2D) g).rotate(Math.toRadians(angle), convertX(convertUnits(x), dimension), convertY(convertUnits(y), dimension));
+        });
+    }
 
-        this.panel.graphics.add(g ->
-                g.drawImage(image, x, y, width, height, (img, infoflags, x1, y1, w, h) -> true));
+    public void drawImage(Image image, int x, int y, int width, int height) {
+        this.panel.graphics.add(g -> g.drawImage(image, x, y, width, height, (img, infoflags, x1, y1, w, h) -> true));
     }
 
     protected Translation2d getMouseTranslation(MouseEvent e) {

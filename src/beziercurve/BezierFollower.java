@@ -106,6 +106,10 @@ public class BezierFollower {
         return pidController;
     }
 
+    public ProfiledPIDController getOmegaController() {
+        return omegaController;
+    }
+
     public BezierCurve.State getState() {
         return state;
     }
