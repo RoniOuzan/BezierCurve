@@ -20,13 +20,12 @@ import java.awt.event.MouseWheelEvent;
 public class BezierCurveGUI extends Frame implements ZeroCenter, DrawCentered {
     private static final boolean IS_CHARGED_UP_FIELD = true;
 
-    private static final double DEFAULT_MAX_VALUE = 10;
+    private static final double DEFAULT_MAX_VALUE = 8.27;
     private static final Dimension2d DIMENSION = new Dimension2d(1713, 837);
     private static final double PIXELS_IN_ONE_UNIT = convertMaxValueToPixels(DEFAULT_MAX_VALUE);
 
     private static final double FPS = 20;
     private static final double ROBOT_WIDTH = 0.91;
-    private static final double BUMPER_WIDTH = 0.08;
 
     private final BezierCurve bezierCurve;
     private final Robot robot;
@@ -41,7 +40,7 @@ public class BezierCurveGUI extends Frame implements ZeroCenter, DrawCentered {
         this.bezierCurve = new BezierCurve(new BezierCurve.Constants(4.5, 4.5, 0.7),
                 new Translation2d(2, -3),
                 new Translation2d(-5, 2),
-//                new Translation2d(-2, 1),
+                new Translation2d(-2, 1),
                 new Translation2d(-6, -2),
                 new Translation2d(3, 3),
                 new Translation2d(7, -1)
@@ -84,16 +83,7 @@ public class BezierCurveGUI extends Frame implements ZeroCenter, DrawCentered {
 
     public void displayRobot() {
         BezierCurve.State state = this.bezierFollower.getState();
-        Pose2d robot = this.robot.getPosition();
-//        Translation2d[] translation2ds = new Translation2d[5];
-//        for (int i = 0; i < translation2ds.length - 1; i++) {
-//            double radians = Math.toRadians(45 + (90 * i)) + robot.getRotation().getRadians();
-//            translation2ds[i] = robot.getTranslation().plus(new Translation2d(radius * Math.cos(radians), radius * Math.sin(radians)));
-//        }
-//        translation2ds[4] = robot.getTranslation().plus(
-//                new Translation2d(
-//                        1.5 * radius * Math.cos(robot.getRotation().getRadians()),
-//                        1.5 * radius * Math.sin(robot.getRotation().getRadians())));
+
         Translation2d setpoint = this.robot.getPosition().getTranslation()
                 .plus(new Translation2d(this.bezierFollower.getPidController().getSetpoint().position,
                         this.robot.getVelocity().getTranslation().getAngle()));
@@ -117,22 +107,6 @@ public class BezierCurveGUI extends Frame implements ZeroCenter, DrawCentered {
                 this.robot.getPosition().getY(),
                 ROBOT_WIDTH, ROBOT_WIDTH,
                 this.robot.getPosition().getRotation().getDegrees());
-
-//        double bumperRadius = Math.hypot(ROBOT_WIDTH / 2, ROBOT_WIDTH / 2);
-//        Translation2d[] bumperEdges = new Translation2d[4];
-//        for (int i = 0; i < bumperEdges.length; i++) {
-//            double radians = Math.toRadians(45 + (90 * i)) + robot.getRotation().getRadians();
-//            bumperEdges[i] = robot.getTranslation().plus(new Translation2d(bumperRadius * Math.cos(radians), bumperRadius * Math.sin(radians)));
-//        }
-//        this.fillPolygon(Color.RED, bumperEdges);
-//
-//        double robotRadius = Math.hypot((ROBOT_WIDTH / 2) - BUMPER_WIDTH, (ROBOT_WIDTH / 2) - BUMPER_WIDTH);
-//        Translation2d[] robotEdges = new Translation2d[4];
-//        for (int i = 0; i < robotEdges.length; i++) {
-//            double radians = Math.toRadians(45 + (90 * i)) + robot.getRotation().getRadians();
-//            robotEdges[i] = robot.getTranslation().plus(new Translation2d(robotRadius * Math.cos(radians), robotRadius * Math.sin(radians)));
-//        }
-//        this.fillPolygon(Color.GRAY, robotEdges);
     }
 
     public void writeValues() {
@@ -162,11 +136,16 @@ public class BezierCurveGUI extends Frame implements ZeroCenter, DrawCentered {
         Translation2d mouseLocation = this.getMouseTranslation(e);
 
         for (int i = this.bezierCurve.getWaypoints().size() - 1; i >= 0; i--) {
-            if (this.bezierCurve.getWaypoints().get(i).getDistance(mouseLocation) <= convertPixelsToUnits(50)) {
+            if (this.bezierCurve.getWaypoints().get(i).getDistance(mouseLocation) <= convertPixelsToUnits(20)) {
                 this.bezierCurve.setWaypoint(i, mouseLocation);
                 break;
             }
         }
+    }
+
+    @Override
+    public void mouseReleased(MouseEvent e) {
+        System.out.println(this.bezierCurve.getWaypoints().stream().map(w -> "(" + w.getX() + "," + w.getY() + ")").toList());
     }
 
     @Override
